@@ -3,15 +3,25 @@
 from flask import Blueprint, jsonify
 from flask_login import login_required
 from models import db, Sangga, Quiz, QuizQuestion
+import time
 
 api_bp = Blueprint("api", __name__)
+
+# Cache sederhana untuk leaderboard, biar server gak query ulang
+# database di setiap request kalau ada banyak siswa polling bersamaan.
+_leaderboard_cache = {"data": None, "timestamp": 0}
+CACHE_DURATION = 3  # detik
 
 
 @api_bp.route("/leaderboard")
 def leaderboard():
-    sanggas = Sangga.query.all()
-    data = sorted([s.to_dict() for s in sanggas], key=lambda x: x["total_xp"], reverse=True)
-    return jsonify({"leaderboard": data})
+    now = time.time()
+    if _leaderboard_cache["data"] is None or (now - _leaderboard_cache["timestamp"]) > CACHE_DURATION:
+        sanggas = Sangga.query.all()
+        data = sorted([s.to_dict() for s in sanggas], key=lambda x: x["total_xp"], reverse=True)
+        _leaderboard_cache["data"] = data
+        _leaderboard_cache["timestamp"] = now
+    return jsonify({"leaderboard": _leaderboard_cache["data"]})
 
 
 @api_bp.route("/quiz/<int:qid>/questions")
