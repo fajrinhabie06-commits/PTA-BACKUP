@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+{% block title %}Kuis – {{ quiz.title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+  .option-btn {
+    width: 100%;
+    padding: 1rem 1.2rem;
+    border: 2px solid rgba(212,136,44,0.25);
+    border-radius: 0.75rem;
+    background: rgba(245,237,216,0.05);
+    color: #F5EDD8;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex; align-items: center; gap: 0.75rem;
+    font-family: 'Lato', sans-serif; font-size: 0.95rem;
+  }
+  .option-btn:hover:not(:disabled) {
+    border-color: #D4882C;
+    background: rgba(212,136,44,0.12);
+    transform: translateX(4px);
+  }
+  .option-btn.selected   { border-color: #D4882C; background: rgba(212,136,44,0.2); }
+  .option-btn.correct    { border-color: #15803d; background: rgba(21,128,61,0.25); }
+  .option-btn.wrong      { border-color: #b91c1c; background: rgba(185,28,28,0.2); }
+  .option-btn:disabled   { cursor: not-allowed; opacity: 0.7; }
+
+  /* Timer ring */
+  .timer-ring { transform: rotate(-90deg); }
+  .timer-ring circle {
+    stroke-dasharray: 251;
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 1s linear, stroke 0.5s;
+  }
+
+  /* XP pop animation */
+  @keyframes xpPop {
+    0%   { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-60px) scale(1.5); }
+  }
+  .xp-pop { animation: xpPop 1.2s ease-out forwards; }
+
+  @keyframes shakeX {
+    0%,100% { transform: translateX(0); }
+    20%,60% { transform: translateX(-8px); }
+    40%,80% { transform: translateX(8px); }
+  }
+  .shake { animation: shakeX 0.5s ease; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+
+  <!-- Header -->
+  <div class="text-center mb-6 animate__animated animate__fadeInDown">
+    <div class="text-4xl animate-campfire inline-block">🧠</div>
+    <h1 class="font-display text-2xl text-scout-amber mt-2 text-glow">{{ quiz.title }}</h1>
+    <p class="text-scout-fog text-sm">Jawab cepat untuk XP lebih tinggi!</p>
+  </div>
+
+  <!-- Quiz Container -->
+  <div id="quiz-container" class="space-y-5">
+
+    <!-- Loading State -->
+    <div id="state-loading" class="card p-10 text-center">
+      <div class="text-5xl animate-float">🏕️</div>
+      <p class="text-scout-fog mt-4">Memuat soal...</p>
+    </div>
+
+    <!-- Question Card -->
+    <div id="state-question" class="hidden">
+
+      <!-- Progress & Timer -->
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex-1">
+          <div class="flex justify-between text-xs text-scout-fog mb-1">
+            <span id="q-progress">Soal 1 dari ?</span>
+            <span id="my-xp" class="text-scout-amber font-display">0 XP</span>
+          </div>
+          <div class="progress-bar-track">
+            <div id="q-progress-bar" class="progress-bar-fill" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Timer ring -->
+        <div class="ml-4 relative flex-shrink-0">
+          <svg width="56" height="56" class="timer-ring">
+            <circle cx="28" cy="28" r="24"
+                    fill="none" stroke="rgba(212,136,44,0.2)" stroke-width="4"/>
+            <circle id="timer-circle" cx="28" cy="28" r="24"
+                    fill="none" stroke="#D4882C" stroke-width="4"
+                    stroke-linecap="round"/>
+          </svg>
+          <span id="timer-text"
+                class="absolute inset-0 flex items-center justify-center
+                       font-display text-scout-amber text-sm"></span>
+        </div>
+      </div>
+
+      <!-- Question -->
+      <div class="card p-6 mb-4">
+        <div class="flex items-start gap-3 mb-5">
+          <span class="text-scout-amber font-display text-xl flex-shrink-0" id="q-number">Q1</span>
+          <p id="q-text" class="text-scout-cream text-lg leading-relaxed"></p>
+        </div>
+
+        <div class="grid gap-3" id="options-grid">
+          {% for letter in ['A','B','C','D'] %}
+          <button class="option-btn" id="opt-{{ letter }}"
+                  onclick="selectAnswer('{{ letter }}')">
+            <span class="w-7 h-7 flex-shrink-0 rounded-full border border-scout-amber/40
+                         flex items-center justify-center font-display text-scout-amber text-sm">
+              {{ letter }}
+            </span>
+            <span id="opt-{{ letter }}-text"></span>
+          </button>
+          {% endfor %}
+        </div>
+
+        <!-- Feedback bar -->
+        <div id="feedback" class="hidden mt-4 p-3 rounded-lg text-center font-display text-lg"></div>
+      </div>
+    </div>
+
+    <!-- Finished State -->
+    <div id="state-finished" class="hidden">
+      <div class="card p-10 text-center animate__animated animate__zoomIn">
+        <div class="text-6xl mb-4">🎉</div>
+        <h2 class="font-display text-3xl text-scout-amber text-glow">Kuis Selesai!</h2>
+        <p class="text-scout-fog mt-2">Total XP kamu dari kuis ini:</p>
+        <div class="font-display text-6xl text-scout-gold mt-4 animate-pulse-glow" id="final-xp">0</div>
+        <p class="text-scout-fog text-sm mt-1">XP telah ditambahkan ke Sangga-mu!</p>
+        <div class="flex justify-center gap-4 mt-8">
+          <a href="/quiz/leaderboard" class="btn-primary">🏆 Lihat Leaderboard</a>
+          <a href="/dashboard/" class="border border-scout-amber/40 text-scout-amber px-5 py-2 rounded-lg hover:bg-scout-amber/10 transition-colors">🏕️ Dashboard</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- No Questions State -->
+    <div id="state-empty" class="hidden card p-10 text-center">
+      <div class="text-5xl">📭</div>
+      <p class="text-scout-fog mt-4">Kuis ini belum memiliki soal.</p>
+      <a href="/dashboard/" class="btn-primary mt-5 inline-flex">← Kembali</a>
+    </div>
+
+  </div>
+
+  <!-- XP Popup overlay -->
+  <div id="xp-popup" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
+                             font-display text-4xl text-scout-gold pointer-events-none z-50 hidden"></div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const QUIZ_ID   = {{ quiz.id }};
+const TIME_LIMIT = {{ quiz.time_limit_seconds }};
+
+let questions     = [];
+let currentIndex  = 0;
+let totalXP       = 0;
+let questionStart = 0;
+let timerInterval = null;
+let answered      = false;
+
+// ── Fetch Questions ────────────────────────────────────────────
+async function loadQuiz() {
+  try {
+    const res  = await fetch(`/api/quiz/${QUIZ_ID}/questions`);
+    const data = await res.json();
+
+    if (!data.questions || data.questions.length === 0) {
+      show('empty'); return;
+    }
+
+    questions = data.questions;
+    show('question');
+    renderQuestion(0);
+  } catch(e) {
+    console.error(e);
+    show('empty');
+  }
+}
+
+// ── Render single question ─────────────────────────────────────
+function renderQuestion(idx) {
+  const q = questions[idx];
+  answered = false;
+  currentIndex = idx;
+
+  // Progress
+  document.getElementById('q-progress').textContent = `Soal ${idx+1} dari ${questions.length}`;
+  document.getElementById('q-progress-bar').style.width = `${((idx)/questions.length)*100}%`;
+  document.getElementById('q-number').textContent = `Q${idx+1}`;
+  document.getElementById('q-text').textContent = q.text;
+  document.getElementById('feedback').classList.add('hidden');
+
+  // Options
+  ['A','B','C','D'].forEach(l => {
+    const btn = document.getElementById('opt-'+l);
+    btn.disabled = false;
+    btn.className = 'option-btn animate__animated animate__fadeInLeft';
+    btn.style.animationDelay = `${['A','B','C','D'].indexOf(l)*0.06}s`;
+    document.getElementById('opt-'+l+'-text').textContent = q['option_'+l.toLowerCase()];
+  });
+
+  // Timer
+  startTimer(q.time_limit || TIME_LIMIT, q.id);
+  questionStart = Date.now();
+}
+
+// ── Timer ──────────────────────────────────────────────────────
+function startTimer(seconds, questionId) {
+  clearInterval(timerInterval);
+  let remaining = seconds;
+  const circumference = 251; // 2πr where r=40
+
+  function tick() {
+    const pct = remaining / seconds;
+    const offset = circumference * (1 - pct);
+    const circle = document.getElementById('timer-circle');
+    document.getElementById('timer-text').textContent = remaining;
+    circle.style.strokeDashoffset = offset;
+    circle.style.stroke = remaining <= 5 ? '#ef4444' : remaining <= 10 ? '#f97316' : '#D4882C';
+
+    if (remaining <= 0) {
+      clearInterval(timerInterval);
+      if (!answered) timeUp(questionId);
+      return;
+    }
+    remaining--;
+  }
+  tick();
+  timerInterval = setInterval(tick, 1000);
+}
+
+// ── Select Answer ──────────────────────────────────────────────
+async function selectAnswer(letter) {
+  if (answered) return;
+  answered = true;
+  clearInterval(timerInterval);
+
+  const responseMs = Date.now() - questionStart;
+  const q = questions[currentIndex];
+
+  // Disable all, mark selected
+  ['A','B','C','D'].forEach(l => {
+    document.getElementById('opt-'+l).disabled = true;
+    if (l === letter) document.getElementById('opt-'+l).classList.add('selected');
+  });
+
+  try {
+    const res = await fetch('/quiz/submit-answer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question_id: q.id,
+        selected_option: letter,
+        response_time_ms: responseMs,
+      })
+    });
+    const data = await res.json();
+
+    // Mark correct/wrong
+    document.getElementById('opt-'+letter).classList.remove('selected');
+    document.getElementById('opt-'+letter).classList.add(data.correct ? 'correct' : 'wrong');
+    document.getElementById('opt-'+data.correct_option).classList.add('correct');
+
+    // Feedback
+    showFeedback(data.correct, data.xp_earned);
+    totalXP += data.xp_earned;
+    document.getElementById('my-xp').textContent = `${totalXP} XP`;
+
+    if (data.xp_earned > 0) showXPPop('+'+data.xp_earned);
+
+  } catch(e) {
+    console.error(e);
+  }
+
+  setTimeout(nextQuestion, 2200);
+}
+
+// ── Time Up ────────────────────────────────────────────────────
+async function timeUp(qId) {
+  answered = true;
+  ['A','B','C','D'].forEach(l => document.getElementById('opt-'+l).disabled = true);
+
+  try {
+    const res = await fetch('/quiz/submit-answer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question_id: qId,
+        selected_option: 'X', // invalid = wrong
+        response_time_ms: TIME_LIMIT * 1000,
+      })
+    });
+    const data = await res.json();
+    if (data.correct_option) {
+      document.getElementById('opt-'+data.correct_option).classList.add('correct');
+    }
+  } catch(e) {}
+
+  showFeedback(false, 0, true);
+  setTimeout(nextQuestion, 2000);
+}
+
+// ── Next Question ──────────────────────────────────────────────
+function nextQuestion() {
+  if (currentIndex + 1 >= questions.length) {
+    finishQuiz();
+  } else {
+    renderQuestion(currentIndex + 1);
+  }
+}
+
+// ── Finish ─────────────────────────────────────────────────────
+function finishQuiz() {
+  clearInterval(timerInterval);
+  document.getElementById('final-xp').textContent = totalXP + ' XP';
+
+  // Animate XP counting
+  let displayed = 0;
+  const step = Math.ceil(totalXP / 40);
+  const interval = setInterval(() => {
+    displayed = Math.min(displayed + step, totalXP);
+    document.getElementById('final-xp').textContent = displayed + ' XP';
+    if (displayed >= totalXP) clearInterval(interval);
+  }, 40);
+
+  show('finished');
+}
+
+// ── Helpers ────────────────────────────────────────────────────
+function show(state) {
+  ['loading','question','finished','empty'].forEach(s => {
+    document.getElementById('state-'+s)?.classList.toggle('hidden', s !== state);
+  });
+}
+
+function showFeedback(correct, xp, timeout=false) {
+  const fb = document.getElementById('feedback');
+  fb.classList.remove('hidden');
+  if (timeout) {
+    fb.style.background = 'rgba(107,114,128,0.3)';
+    fb.style.color = '#9CA3AF';
+    fb.textContent = '⏰ Waktu Habis!';
+  } else if (correct) {
+    fb.style.background = 'rgba(21,128,61,0.3)';
+    fb.style.color = '#4ade80';
+    fb.textContent = `✅ Benar! +${xp} XP`;
+  } else {
+    fb.style.background = 'rgba(185,28,28,0.3)';
+    fb.style.color = '#f87171';
+    fb.textContent = '❌ Salah!';
+    document.getElementById('options-grid').classList.add('shake');
+    setTimeout(() => document.getElementById('options-grid').classList.remove('shake'), 500);
+  }
+}
+
+function showXPPop(text) {
+  const el = document.getElementById('xp-popup');
+  el.textContent = text;
+  el.classList.remove('hidden', 'xp-pop');
+  void el.offsetWidth; // reflow
+  el.classList.add('xp-pop');
+  setTimeout(() => el.classList.add('hidden'), 1200);
+}
+
+// ── Init ───────────────────────────────────────────────────────
+loadQuiz();
+</script>
+{% endblock %}

@@ -1,0 +1,473 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard – PTA Scout Adventure 2026{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+
+  <!-- ── Header ─────────────────────────────────────────────────── -->
+  <div class="mb-8 animate__animated animate__fadeInDown">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <div>
+        <h1 class="font-display text-3xl text-scout-amber text-glow">⚙️ Admin Command Center</h1>
+        <p class="text-scout-fog mt-1">PTA Scout Adventure 2026 – Kontrol Penuh di Tanganmu</p>
+      </div>
+      <div class="flex gap-3 flex-wrap">
+        <a href="/quiz/leaderboard" target="_blank"
+           class="border border-scout-amber/40 text-scout-amber px-4 py-2 rounded-lg text-sm hover:bg-scout-amber/10 transition-colors">
+          🏆 Lihat Leaderboard
+        </a>
+      </div>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
+      {% set stats = [
+        ('👥', 'Total Peserta', users|length),
+        ('⚔️', 'Total Sangga', sanggas|length),
+        ('📋', 'Pending Review', pending_subs),
+        ('🧠', 'Kuis Aktif', quizzes|selectattr('is_active')|list|length),
+      ] %}
+      {% for icon, label, val in stats %}
+      <div class="card p-4 text-center">
+        <div class="text-2xl">{{ icon }}</div>
+        <div class="font-display text-2xl text-scout-amber mt-1">{{ val }}</div>
+        <div class="text-scout-fog text-xs mt-1">{{ label }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ── Tab Navigation ──────────────────────────────────────────── -->
+  <div class="flex gap-1 mb-6 border-b border-scout-amber/20 overflow-x-auto pb-px" id="tabs">
+    {% for tab in [('sangga','⚔️ Sangga'),('users','👥 Peserta'),('gatekeeper','🔐 Gatekeeper'),('missions','📋 Misi'),('quiz','🧠 Kuis'),('submissions','📨 Submission'),('xplog','📊 Log XP')] %}
+    <button onclick="showTab('{{ tab[0] }}')" id="tab-{{ tab[0] }}"
+            class="tab-btn px-4 py-2 text-sm font-display whitespace-nowrap rounded-t transition-all
+                   text-scout-fog hover:text-scout-amber border-b-2 border-transparent">
+      {{ tab[1] }}
+    </button>
+    {% endfor %}
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       TAB: SANGGA
+  ════════════════════════════════════════════════════════════════ -->
+  <div id="panel-sangga" class="tab-panel">
+    <div class="grid md:grid-cols-2 gap-6">
+
+      <!-- Add Sangga -->
+      <div class="card p-6">
+        <h2 class="font-display text-scout-amber text-lg mb-4">➕ Tambah Sangga</h2>
+        <form action="/admin/sangga/add" method="POST" class="space-y-3">
+          <input type="text" name="name" placeholder="Nama Sangga..." class="input-field" required />
+          <input type="text" name="emoji" placeholder="Emoji (🦅)" class="input-field" value="⚜️" />
+          <button type="submit" class="btn-primary w-full justify-center">➕ Tambah Sangga</button>
+        </form>
+      </div>
+
+      <!-- Sangga List -->
+      <div class="card p-6">
+        <h2 class="font-display text-scout-amber text-lg mb-4">⚔️ Daftar Sangga</h2>
+        <div class="space-y-3 max-h-[400px] overflow-y-auto">
+          {% for s in sanggas %}
+          <div class="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+            <div>
+              <span class="text-xl">{{ s.emoji }}</span>
+              <span class="text-scout-cream ml-2 font-semibold">{{ s.name }}</span>
+              <span class="text-scout-fog text-xs ml-2">{{ s.member_count }} anggota</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-scout-amber font-display text-sm">{{ s.total_xp }} XP</span>
+              <form action="/admin/sangga/{{ s.id }}/delete" method="POST"
+                    onsubmit="return confirm('Hapus Sangga {{ s.name }}?')">
+                <button class="btn-danger py-1 px-2 text-xs">🗑</button>
+              </form>
+            </div>
+          </div>
+          {% else %}
+          <p class="text-scout-fog text-center py-4">Belum ada Sangga</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- XP Control -->
+    <div class="card p-6 mt-6">
+      <h2 class="font-display text-scout-amber text-lg mb-4">🎚️ Kontrol XP Manual</h2>
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for s in sanggas %}
+        <div class="p-4 rounded-xl bg-white/5 border border-scout-amber/15">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-scout-cream font-semibold">{{ s.emoji }} {{ s.name }}</span>
+            <span class="font-display text-scout-amber">{{ s.total_xp }} XP</span>
+          </div>
+          <form action="/admin/sangga/{{ s.id }}/xp" method="POST" class="space-y-2">
+            <div class="flex gap-2">
+              <input type="number" name="amount" placeholder="±XP" required
+                     class="input-field text-center text-sm" />
+            </div>
+            <input type="text" name="reason" placeholder="Alasan..." class="input-field text-sm" />
+            <div class="flex gap-2">
+              <button type="submit" formaction="/admin/sangga/{{ s.id }}/xp"
+                      class="btn-success flex-1 text-xs py-2">✅ Terapkan</button>
+            </div>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       TAB: PESERTA
+  ════════════════════════════════════════════════════════════════ -->
+  <div id="panel-users" class="tab-panel hidden">
+    <div class="grid md:grid-cols-2 gap-6">
+
+      <!-- Add User -->
+      <div class="card p-6">
+        <h2 class="font-display text-scout-amber text-lg mb-4">➕ Tambah Peserta</h2>
+        <form action="/admin/user/add" method="POST" class="space-y-3">
+          <input type="text" name="full_name" placeholder="Nama Lengkap..." class="input-field" required />
+          <input type="text" name="username" placeholder="Username (unik)..." class="input-field" required />
+          <input type="password" name="password" placeholder="Password..." class="input-field" required />
+          <select name="sangga_id" class="input-field">
+            <option value="">-- Tidak ada Sangga --</option>
+            {% for s in sanggas %}
+            <option value="{{ s.id }}">{{ s.emoji }} {{ s.name }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn-primary w-full justify-center">➕ Tambah Peserta</button>
+        </form>
+      </div>
+
+      <!-- User List -->
+      <div class="card p-6">
+        <h2 class="font-display text-scout-amber text-lg mb-4">👥 Daftar Peserta</h2>
+        <div class="space-y-2 max-h-[450px] overflow-y-auto">
+          {% for u in users %}
+          <div class="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/8 transition-colors">
+            <div>
+              <p class="text-scout-cream text-sm font-semibold">{{ u.full_name }}</p>
+              <p class="text-scout-fog text-xs">
+                @{{ u.username }} ·
+                {% if u.sangga %}{{ u.sangga.emoji }} {{ u.sangga.name }}{% else %}Tanpa Sangga{% endif %}
+              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-scout-amber text-xs">{{ u.quiz_xp }} XP</span>
+              <form action="/admin/user/{{ u.id }}/delete" method="POST"
+                    onsubmit="return confirm('Hapus peserta {{ u.full_name }}?')">
+                <button class="btn-danger py-1 px-2 text-xs">🗑</button>
+              </form>
+            </div>
+          </div>
+          {% else %}
+          <p class="text-scout-fog text-center py-4">Belum ada peserta</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       TAB: GATEKEEPER
+  ════════════════════════════════════════════════════════════════ -->
+  <div id="panel-gatekeeper" class="tab-panel hidden">
+    <div class="card p-6">
+      <h2 class="font-display text-scout-amber text-xl mb-2">🔐 Gatekeeper System</h2>
+      <p class="text-scout-fog text-sm mb-6">Kontrol akses misi berdasarkan Hari. Jika dikunci, peserta tidak bisa melihat atau submit misi di hari tersebut.</p>
+
+      <div class="grid md:grid-cols-3 gap-6">
+        {% for day in days %}
+        <div class="card p-6 text-center" style="border-color: {{ 'rgba(212,136,44,0.5)' if not day.is_locked else 'rgba(185,28,28,0.4)' }}">
+          <div class="text-5xl mb-3">{{ '🔓' if not day.is_locked else '🔒' }}</div>
+          <h3 class="font-display text-2xl text-scout-cream">Hari {{ day.day_number }}</h3>
+          <p class="text-sm mt-2 {{ 'text-green-400' if not day.is_locked else 'text-red-400' }}">
+            {{ '✅ Terbuka – Peserta bisa akses' if not day.is_locked else '🔒 Terkunci – Akses diblokir' }}
+          </p>
+          <p class="text-scout-fog text-xs mt-1">{{ day.missions.count() }} misi tersedia</p>
+          <form action="/admin/day/{{ day.id }}/toggle" method="POST" class="mt-4">
+            <button type="submit"
+                    class="{{ 'btn-danger' if not day.is_locked else 'btn-success' }} w-full justify-center">
+              {{ '🔒 Kunci Hari Ini' if not day.is_locked else '🔓 Buka Akses' }}
+            </button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       TAB: MISI
+  ════════════════════════════════════════════════════════════════ -->
+  <div id="panel-missions" class="tab-panel hidden">
+    <div class="grid md:grid-cols-2 gap-6">
+
+      <!-- Add Mission -->
+      <div class="card p-6">
+        <h2 class="font-display text-scout-amber text-lg mb-4">➕ Buat Misi Baru</h2>
+        <form action="/admin/mission/add" method="POST" class="space-y-3">
+          <input type="text" name="title" placeholder="Judul Misi..." class="input-field" required />
+          <textarea name="description" placeholder="Deskripsi misi..." rows="3"
+                    class="input-field resize-none"></textarea>
+          <input type="url" name="link" placeholder="Link referensi (opsional)..." class="input-field" />
+          <div class="flex gap-3">
+            <select name="day_id" class="input-field" required>
+              <option value="">-- Pilih Hari --</option>
+              {% for day in days %}
+              <option value="{{ day.id }}">Hari {{ day.day_number }}</option>
+              {% endfor %}
+            </select>
+            <input type="number" name="xp_reward" placeholder="XP" value="50"
+                   min="10" max="500" class="input-field w-24" />
+          </div>
+          <button type="submit" class="btn-primary w-full justify-center">📋 Buat Misi</button>
+        </form>
+      </div>
+
+      <!-- Mission List -->
+      <div class="card p-6">
+        <h2 class="font-display text-scout-amber text-lg mb-4">📋 Daftar Misi</h2>
+        <div class="space-y-3 max-h-[500px] overflow-y-auto">
+          {% set ns = namespace(current_day=None) %}
+          {% for m in missions %}
+            {% if m.day_id != ns.current_day %}
+              {% set ns.current_day = m.day_id %}
+              <div class="flex items-center gap-2 mt-2 mb-1">
+                <div class="h-px flex-1 bg-scout-amber/20"></div>
+                <span class="text-scout-amber text-xs font-display">Hari {{ m.day.day_number }}</span>
+                <div class="h-px flex-1 bg-scout-amber/20"></div>
+              </div>
+            {% endif %}
+            <div class="flex items-start justify-between p-3 rounded-lg bg-white/5 gap-3">
+              <div class="flex-1 min-w-0">
+                <p class="text-scout-cream text-sm font-semibold truncate">{{ m.title }}</p>
+                <p class="text-scout-fog text-xs">{{ m.xp_reward }} XP · {{ m.submissions.count() }} submission</p>
+              </div>
+              <form action="/admin/mission/{{ m.id }}/delete" method="POST"
+                    onsubmit="return confirm('Hapus misi ini?')">
+                <button class="btn-danger py-1 px-2 text-xs flex-shrink-0">🗑</button>
+              </form>
+            </div>
+          {% else %}
+          <p class="text-scout-fog text-center py-4">Belum ada misi</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       TAB: KUIS
+  ════════════════════════════════════════════════════════════════ -->
+  <div id="panel-quiz" class="tab-panel hidden">
+    <div class="grid md:grid-cols-2 gap-6">
+
+      <!-- Create Quiz -->
+      <div class="card p-6">
+        <h2 class="font-display text-scout-amber text-lg mb-4">➕ Buat Kuis Baru</h2>
+        <form action="/admin/quiz/add" method="POST" class="space-y-3">
+          <input type="text" name="title" placeholder="Judul Kuis..." class="input-field" required />
+          <div class="flex items-center gap-2">
+            <label class="text-scout-fog text-sm whitespace-nowrap">Waktu/soal:</label>
+            <input type="number" name="time_limit" value="30" min="10" max="120"
+                   class="input-field w-24" />
+            <span class="text-scout-fog text-sm">detik</span>
+          </div>
+          <button type="submit" class="btn-primary w-full justify-center">🧠 Buat Kuis</button>
+        </form>
+      </div>
+
+      <!-- Quiz List -->
+      <div class="card p-6">
+        <h2 class="font-display text-scout-amber text-lg mb-4">🧠 Daftar Kuis</h2>
+        <div class="space-y-3 max-h-[300px] overflow-y-auto">
+          {% for q in quizzes %}
+          <div class="p-3 rounded-xl bg-white/5 border {{ 'border-green-500/40' if q.is_active else 'border-white/10' }}">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-scout-cream font-semibold text-sm">{{ q.title }}</span>
+              {% if q.is_active %}
+                <span class="text-green-400 text-xs font-display px-2 py-0.5 bg-green-900/40 rounded-full">● LIVE</span>
+              {% endif %}
+            </div>
+            <p class="text-scout-fog text-xs mb-2">{{ q.questions.count() }} soal · {{ q.time_limit_seconds }}s/soal</p>
+            <div class="flex gap-2">
+              <form action="/admin/quiz/{{ q.id }}/toggle" method="POST">
+                <button class="{{ 'btn-danger' if q.is_active else 'btn-success' }} py-1 px-3 text-xs">
+                  {{ '⏸ Nonaktifkan' if q.is_active else '▶️ Aktifkan' }}
+                </button>
+              </form>
+              <button onclick="document.getElementById('addq-{{ q.id }}').classList.toggle('hidden')"
+                      class="border border-scout-amber/30 text-scout-amber px-3 py-1 rounded text-xs hover:bg-scout-amber/10 transition-colors">
+                ➕ Soal
+              </button>
+              <form action="/admin/quiz/{{ q.id }}/delete" method="POST"
+                    onsubmit="return confirm('Hapus kuis ini?')">
+                <button class="btn-danger py-1 px-2 text-xs">🗑</button>
+              </form>
+            </div>
+
+            <!-- Add Question Form (collapsible) -->
+            <div id="addq-{{ q.id }}" class="hidden mt-3 pt-3 border-t border-white/10">
+              <form action="/admin/quiz/{{ q.id }}/question/add" method="POST" class="space-y-2">
+                <textarea name="text" placeholder="Teks soal..." rows="2"
+                          class="input-field resize-none text-sm" required></textarea>
+                <div class="grid grid-cols-2 gap-2">
+                  <input type="text" name="option_a" placeholder="A. ..." class="input-field text-sm" required />
+                  <input type="text" name="option_b" placeholder="B. ..." class="input-field text-sm" required />
+                  <input type="text" name="option_c" placeholder="C. ..." class="input-field text-sm" required />
+                  <input type="text" name="option_d" placeholder="D. ..." class="input-field text-sm" required />
+                </div>
+                <div class="flex gap-2">
+                  <select name="correct_option" class="input-field text-sm">
+                    <option value="A">✅ A Benar</option>
+                    <option value="B">✅ B Benar</option>
+                    <option value="C">✅ C Benar</option>
+                    <option value="D">✅ D Benar</option>
+                  </select>
+                  <input type="number" name="base_xp" value="100" min="10" max="500"
+                         class="input-field text-sm w-24" placeholder="XP" />
+                </div>
+                <button type="submit" class="btn-success w-full py-2 text-sm">✅ Simpan Soal</button>
+              </form>
+            </div>
+          </div>
+          {% else %}
+          <p class="text-scout-fog text-center py-4">Belum ada kuis</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       TAB: SUBMISSION
+  ════════════════════════════════════════════════════════════════ -->
+  <div id="panel-submissions" class="tab-panel hidden">
+    <div class="card p-6">
+      <h2 class="font-display text-scout-amber text-xl mb-4">📨 Review Submission Misi</h2>
+      <div class="space-y-3 max-h-[600px] overflow-y-auto">
+        {% for sub in submissions %}
+        <div class="p-4 rounded-xl bg-white/5 border
+            {{ 'border-yellow-500/40' if sub.status == 'pending' else
+               'border-green-500/30' if sub.status == 'approved' else
+               'border-red-500/30' }}">
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap mb-1">
+                <span class="font-display text-scout-cream text-sm">{{ sub.mission.title }}</span>
+                <span class="px-2 py-0.5 rounded-full text-xs
+                    {{ 'bg-yellow-900/50 text-yellow-300' if sub.status == 'pending' else
+                       'bg-green-900/50 text-green-300' if sub.status == 'approved' else
+                       'bg-red-900/50 text-red-300' }}">
+                  {{ sub.status.upper() }}
+                </span>
+              </div>
+              <p class="text-scout-fog text-xs">
+                {{ sub.sangga.emoji }} {{ sub.sangga.name }} ·
+                oleh {{ sub.submitted_by.full_name }} ·
+                {{ sub.submitted_at.strftime('%d/%m %H:%M') }}
+              </p>
+              <a href="{{ sub.link }}" target="_blank"
+                 class="text-scout-amber text-xs underline mt-1 block truncate hover:text-scout-gold">
+                🔗 {{ sub.link }}
+              </a>
+            </div>
+
+            {% if sub.status == 'pending' %}
+            <div class="flex gap-2 flex-shrink-0">
+              <form action="/admin/submission/{{ sub.id }}/review" method="POST">
+                <input type="hidden" name="action" value="approve" />
+                <button class="btn-success py-1 px-3 text-xs">✅ ACC</button>
+              </form>
+              <form action="/admin/submission/{{ sub.id }}/review" method="POST">
+                <input type="hidden" name="action" value="reject" />
+                <button class="btn-danger py-1 px-3 text-xs">❌ Tolak</button>
+              </form>
+            </div>
+            {% else %}
+            <span class="text-scout-fog text-xs flex-shrink-0">
+              {{ '+'+sub.xp_awarded|string+' XP' if sub.xp_awarded else '' }}
+            </span>
+            {% endif %}
+          </div>
+        </div>
+        {% else %}
+        <p class="text-scout-fog text-center py-8">🎉 Tidak ada submission untuk direview</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       TAB: LOG XP
+  ════════════════════════════════════════════════════════════════ -->
+  <div id="panel-xplog" class="tab-panel hidden">
+    <div class="card p-6">
+      <h2 class="font-display text-scout-amber text-xl mb-4">📊 Riwayat Perubahan XP</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-scout-fog text-xs border-b border-scout-amber/20">
+              <th class="text-left pb-3 pr-4">Waktu</th>
+              <th class="text-left pb-3 pr-4">Sangga</th>
+              <th class="text-left pb-3 pr-4">Admin</th>
+              <th class="text-left pb-3 pr-4">Jumlah</th>
+              <th class="text-left pb-3">Alasan</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-scout-amber/10">
+            {% for log in xp_logs %}
+            <tr class="hover:bg-white/5 transition-colors">
+              <td class="py-3 pr-4 text-scout-fog text-xs">{{ log.created_at.strftime('%d/%m %H:%M') }}</td>
+              <td class="py-3 pr-4 text-scout-cream">{{ log.sangga.emoji }} {{ log.sangga.name }}</td>
+              <td class="py-3 pr-4 text-scout-fog text-xs">{{ log.admin.full_name }}</td>
+              <td class="py-3 pr-4 font-display
+                  {{ 'text-green-400' if log.amount >= 0 else 'text-red-400' }}">
+                {{ '+' if log.amount >= 0 else '' }}{{ log.amount }}
+              </td>
+              <td class="py-3 text-scout-fog text-xs">{{ log.reason or '–' }}</td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="5" class="py-8 text-center text-scout-fog">Belum ada log</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // ── Tab System ──────────────────────────────────────────────────
+  const tabs = ['sangga','users','gatekeeper','missions','quiz','submissions','xplog'];
+
+  function showTab(name) {
+    tabs.forEach(t => {
+      document.getElementById('panel-' + t)?.classList.add('hidden');
+      const btn = document.getElementById('tab-' + t);
+      if (btn) {
+        btn.classList.remove('text-scout-amber', 'border-scout-amber', 'border-b-2');
+        btn.classList.add('text-scout-fog', 'border-transparent');
+      }
+    });
+    document.getElementById('panel-' + name)?.classList.remove('hidden');
+    const activeBtn = document.getElementById('tab-' + name);
+    if (activeBtn) {
+      activeBtn.classList.add('text-scout-amber', 'border-scout-amber', 'border-b-2');
+      activeBtn.classList.remove('text-scout-fog', 'border-transparent');
+    }
+    localStorage.setItem('adminTab', name);
+  }
+
+  // Restore last tab
+  const lastTab = localStorage.getItem('adminTab') || 'sangga';
+  showTab(lastTab);
+</script>
+{% endblock %}

@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}Dashboard – {{ current_user.full_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-6 space-y-6">
+
+  <!-- ── Hero Welcome ──────────────────────────────────────────── -->
+  <div class="animate__animated animate__fadeInDown">
+    <div class="card p-6 relative overflow-hidden"
+         style="background: linear-gradient(135deg, #2A1408 0%, #1E2A0F 100%); border-color: rgba(212,136,44,0.4);">
+      <!-- Decorative compass -->
+      <div class="absolute right-4 top-4 text-6xl opacity-10 select-none">🧭</div>
+      <div class="flex items-center gap-4">
+        <div class="w-16 h-16 rounded-full bg-scout-amber/20 border-2 border-scout-amber
+                    flex items-center justify-center text-2xl font-display animate-pulse-glow">
+          {{ current_user.full_name[0].upper() }}
+        </div>
+        <div>
+          <p class="text-scout-fog text-sm">Selamat datang,</p>
+          <h1 class="font-display text-2xl text-scout-cream">{{ current_user.full_name }}</h1>
+          {% if my_sangga %}
+          <p class="text-scout-amber text-sm">
+            {{ my_sangga.emoji }} {{ my_sangga.name }}
+            {% if my_rank %} · 🏆 Peringkat #{{ my_rank }}{% endif %}
+          </p>
+          {% else %}
+          <p class="text-red-400 text-sm">⚠️ Belum terdaftar di Sangga</p>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if my_sangga %}
+      <!-- XP Progress -->
+      <div class="mt-5">
+        <div class="flex justify-between text-xs text-scout-fog mb-1">
+          <span>XP Sangga</span>
+          <span class="font-display text-scout-amber">{{ my_sangga.total_xp }} XP</span>
+        </div>
+        {% set max_xp = 1000 %}
+        {% set pct = [my_sangga.total_xp / max_xp * 100, 100]|min %}
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" style="width: {{ pct }}%"></div>
+        </div>
+        <div class="flex justify-between text-xs text-scout-fog mt-1">
+          <span>Quiz XP: {{ my_sangga.total_quiz_xp }}</span>
+          <span>Bonus XP: {{ my_sangga.xp }}</span>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── Quick Actions ─────────────────────────────────────────── -->
+  <div class="grid grid-cols-2 md:grid-cols-3 gap-3 animate__animated animate__fadeIn">
+    {% if active_quiz %}
+    <a href="/quiz/" class="card p-4 text-center hover:border-scout-amber/60 transition-all group cursor-pointer animate-pulse-glow">
+      <div class="text-3xl group-hover:scale-110 transition-transform">🧠</div>
+      <p class="font-display text-scout-amber text-sm mt-2">Kuis LIVE!</p>
+      <p class="text-scout-fog text-xs">{{ active_quiz.title }}</p>
+    </a>
+    {% endif %}
+    <a href="/quiz/leaderboard" class="card p-4 text-center hover:border-scout-amber/60 transition-all group cursor-pointer">
+      <div class="text-3xl group-hover:scale-110 transition-transform">🏆</div>
+      <p class="font-display text-scout-amber text-sm mt-2">Leaderboard</p>
+      <p class="text-scout-fog text-xs">Live ranking</p>
+    </a>
+    <div class="card p-4 text-center">
+      <div class="text-3xl">⚜️</div>
+      <p class="font-display text-scout-amber text-sm mt-2">Kontribusimu</p>
+      <p class="text-scout-fog text-xs">{{ current_user.quiz_xp }} Quiz XP</p>
+    </div>
+  </div>
+
+  <!-- ── Missions Tab ──────────────────────────────────────────── -->
+  <div class="animate__animated animate__fadeInUp" style="animation-delay: 0.2s">
+    <h2 class="font-display text-scout-amber text-xl mb-4">📋 Misi Aktif</h2>
+
+    {% for day in days %}
+    <div class="mb-5">
+      <div class="flex items-center gap-3 mb-3">
+        <span class="font-display text-scout-cream text-lg">Hari {{ day.day_number }}</span>
+        {% if day.is_locked %}
+        <span class="px-2 py-0.5 bg-red-900/40 border border-red-500/30 rounded-full text-red-400 text-xs">🔒 Terkunci</span>
+        {% else %}
+        <span class="px-2 py-0.5 bg-green-900/40 border border-green-500/30 rounded-full text-green-400 text-xs">🔓 Terbuka</span>
+        {% endif %}
+      </div>
+
+      {% if day.is_locked %}
+      <div class="card p-5 text-center opacity-60">
+        <p class="text-scout-fog text-sm">🔒 Misi hari ini masih dikunci oleh Admin</p>
+      </div>
+      {% else %}
+        {% if day.missions.count() == 0 %}
+        <div class="card p-5 text-center opacity-60">
+          <p class="text-scout-fog text-sm">Belum ada misi untuk hari ini</p>
+        </div>
+        {% else %}
+        <div class="space-y-3">
+          {% for mission in day.missions %}
+            {% set submitted = my_sangga and my_submissions|selectattr('mission_id', 'equalto', mission.id)|list|length > 0 %}
+            {% set sub_obj = (my_submissions|selectattr('mission_id', 'equalto', mission.id)|list)[0] if submitted else None %}
+
+            <div class="card p-5 hover:border-scout-amber/40 transition-all">
+              <div class="flex items-start justify-between flex-wrap gap-3">
+                <div class="flex-1 min-w-0">
+                  <h3 class="font-semibold text-scout-cream">{{ mission.title }}</h3>
+                  {% if mission.description %}
+                  <p class="text-scout-fog text-sm mt-1">{{ mission.description }}</p>
+                  {% endif %}
+                  <div class="flex items-center gap-3 mt-2 flex-wrap">
+                    <span class="text-scout-amber text-xs font-display">🏅 {{ mission.xp_reward }} XP</span>
+                    {% if mission.link %}
+                    <a href="{{ mission.link }}" target="_blank"
+                       class="text-xs text-sky-400 hover:text-sky-300 underline">📎 Lihat Panduan</a>
+                    {% endif %}
+                  </div>
+                </div>
+
+                <div class="flex-shrink-0">
+                  {% if submitted %}
+                    <div class="text-right">
+                      <span class="px-3 py-1 rounded-full text-xs font-display
+                          {{ 'bg-yellow-900/40 text-yellow-300 border border-yellow-500/30' if sub_obj.status == 'pending' else
+                             'bg-green-900/40 text-green-300 border border-green-500/30' if sub_obj.status == 'approved' else
+                             'bg-red-900/40 text-red-300 border border-red-500/30' }}">
+                        {{ '⏳ Pending' if sub_obj.status == 'pending' else
+                           '✅ Disetujui' if sub_obj.status == 'approved' else '❌ Ditolak' }}
+                      </span>
+                    </div>
+                  {% else %}
+                    <button onclick="openSubmit({{ mission.id }}, '{{ mission.title }}')"
+                            class="btn-primary text-sm">
+                      📤 Submit
+                    </button>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+
+<!-- ── Submit Modal ──────────────────────────────────────────────── -->
+<div id="submit-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center px-4"
+     style="background: rgba(0,0,0,0.8);">
+  <div class="card p-6 w-full max-w-md animate__animated animate__zoomIn">
+    <h3 class="font-display text-scout-amber text-lg mb-1">📤 Submit Bukti Misi</h3>
+    <p id="modal-mission-name" class="text-scout-fog text-sm mb-4"></p>
+    <form action="/dashboard/submit-mission" method="POST" class="space-y-3">
+      <input type="hidden" name="mission_id" id="modal-mission-id" />
+      <div>
+        <label class="text-scout-fog text-sm mb-1 block">Link Bukti (Drive/Sosmed/YouTube)</label>
+        <input type="url" name="link" required placeholder="https://..."
+               class="input-field" />
+      </div>
+      <div class="flex gap-3">
+        <button type="button" onclick="closeSubmit()"
+                class="flex-1 border border-scout-fog/30 text-scout-fog py-2 rounded-lg hover:bg-white/5 transition-colors">
+          Batal
+        </button>
+        <button type="submit" class="btn-primary flex-1 justify-center">📤 Kirim Bukti</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function openSubmit(id, title) {
+    document.getElementById('modal-mission-id').value = id;
+    document.getElementById('modal-mission-name').textContent = title;
+    document.getElementById('submit-modal').classList.remove('hidden');
+  }
+  function closeSubmit() {
+    document.getElementById('submit-modal').classList.add('hidden');
+  }
+  document.getElementById('submit-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeSubmit();
+  });
+</script>
+{% endblock %}

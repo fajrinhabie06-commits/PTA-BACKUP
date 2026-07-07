@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% block title %}🏆 Leaderboard – PTA Scout Adventure 2026{% endblock %}
+
+{% block extra_head %}
+<style>
+  .leaderboard-row {
+    transition: all 0.5s cubic-bezier(0.4,0,0.2,1);
+  }
+  .leaderboard-row.moving {
+    animation: slideHighlight 0.5s ease;
+  }
+  @keyframes slideHighlight {
+    0%   { background: rgba(212,136,44,0.3); }
+    100% { background: transparent; }
+  }
+  .top1-card {
+    background: linear-gradient(135deg, rgba(212,136,44,0.25), rgba(240,168,48,0.1));
+    border: 2px solid #D4882C;
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+  @keyframes pulse-glow {
+    0%,100% { box-shadow: 0 0 15px rgba(212,136,44,0.3); }
+    50%      { box-shadow: 0 0 40px rgba(212,136,44,0.7); }
+  }
+  .xp-bar-fill {
+    height: 100%; border-radius: 999px;
+    background: linear-gradient(90deg, #D4882C, #F0A830);
+    transition: width 1.2s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  /* Live dot */
+  .live-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #22c55e;
+    animation: livePulse 1.5s ease-in-out infinite;
+  }
+  @keyframes livePulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.5; transform: scale(1.5); }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8">
+
+  <!-- Header -->
+  <div class="text-center mb-8 animate__animated animate__fadeInDown">
+    <div class="text-6xl mb-3 animate-float inline-block">🏆</div>
+    <h1 class="font-display text-4xl text-scout-amber text-glow">PAPAN PERINGKAT</h1>
+    <p class="text-scout-fog mt-1 font-mono">PTA Scout Adventure 2026</p>
+    <div class="flex items-center justify-center gap-2 mt-3">
+      <div class="live-dot"></div>
+      <span class="text-green-400 text-sm" id="live-status">Live – Update Otomatis</span>
+    </div>
+  </div>
+
+  <!-- Top 3 Podium -->
+  <div id="podium" class="mb-8">
+    <!-- Rendered via JS -->
+  </div>
+
+  <!-- Full Leaderboard Table -->
+  <div class="card p-2 overflow-hidden animate__animated animate__fadeInUp" style="animation-delay:0.3s">
+    <div id="leaderboard-table" class="divide-y divide-scout-amber/10">
+      <!-- Populated by JS -->
+      {% for s in sanggas %}
+      <div class="leaderboard-row flex items-center gap-4 p-4 hover:bg-white/5 transition-colors"
+           data-id="{{ s.id }}" data-xp="{{ s.total_xp }}">
+        <div class="rank-badge {{ 'rank-1' if loop.index == 1 else 'rank-2' if loop.index == 2 else 'rank-3' if loop.index == 3 else 'rank-n' }}">
+          {{ loop.index }}
+        </div>
+        <div class="text-2xl">{{ s.emoji }}</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2">
+            <span class="font-display text-scout-cream truncate">{{ s.name }}</span>
+            {% if loop.index == 1 %}<span class="text-xs text-scout-amber">👑 Pemimpin</span>{% endif %}
+          </div>
+          <div class="progress-bar-track mt-1.5" style="height:6px">
+            {% set max_xp = sanggas[0].total_xp if sanggas else 1 %}
+            <div class="xp-bar-fill" style="width:{{ [s.total_xp / [max_xp,1]|max * 100, 100]|min }}%"></div>
+          </div>
+          <div class="flex justify-between text-xs text-scout-fog mt-0.5">
+            <span>{{ s.member_count }} anggota</span>
+            <span>Quiz: {{ s.total_quiz_xp }} + Bonus: {{ s.xp }}</span>
+          </div>
+        </div>
+        <div class="text-right flex-shrink-0">
+          <div class="font-display text-xl text-scout-amber">{{ s.total_xp }}</div>
+          <div class="text-scout-fog text-xs">XP</div>
+        </div>
+      </div>
+      {% else %}
+      <div class="p-10 text-center text-scout-fog">Belum ada data Sangga.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Refresh info -->
+  <p class="text-center text-scout-fog/40 text-xs mt-4 font-mono" id="last-update">
+    Menunggu update...
+  </p>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const socket = io();
+let currentData = [];
+
+// Initial server-side data
+const initialData = [
+  {% for s in sanggas %}
+  {
+    id: {{ s.id }},
+    name: {{ s.name | tojson }},
+    emoji: {{ s.emoji | tojson }},
+    xp: {{ s.xp }},
+    quiz_xp: {{ s.total_quiz_xp }},
+    total_xp: {{ s.total_xp }},
+    member_count: {{ s.member_count }},
+  },
+  {% endfor %}
+];
+
+currentData = initialData;
+renderPodium(initialData);
+// Table already rendered server-side, just update on socket events
+
+// ── Socket.IO ─────────────────────────────────────────────────
+socket.on('connect', () => {
+  document.getElementById('live-status').textContent = '🟢 Terhubung – Live Update';
+});
+
+socket.on('disconnect', () => {
+  document.getElementById('live-status').textContent = '🔴 Terputus – Reconnecting...';
+  document.getElementById('live-status').classList.replace('text-green-400','text-red-400');
+});
+
+socket.on('leaderboard_update', (data) => {
+  const lb = data.leaderboard;
+  currentData = lb;
+  renderLeaderboard(lb);
+  renderPodium(lb);
+  const now = new Date().toLocaleTimeString('id-ID');
+  document.getElementById('last-update').textContent = `Terakhir diperbarui: ${now}`;
+});
+
+// ── Render Table ───────────────────────────────────────────────
+function renderLeaderboard(data) {
+  const maxXP = data.length > 0 ? data[0].total_xp : 1;
+  const table = document.getElementById('leaderboard-table');
+
+  table.innerHTML = data.map((s, idx) => {
+    const rank = idx + 1;
+    const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-n';
+    const pct = Math.min((s.total_xp / Math.max(maxXP, 1)) * 100, 100);
+
+    return `
+    <div class="leaderboard-row flex items-center gap-4 p-4 hover:bg-white/5 transition-colors ${rank===1?'top1-card':''}"
+         data-id="${s.id}" data-xp="${s.total_xp}">
+      <div class="rank-badge ${rankClass}">${rank}</div>
+      <div class="text-2xl">${s.emoji}</div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2">
+          <span class="font-display text-scout-cream truncate">${s.name}</span>
+          ${rank===1 ? '<span class="text-xs text-scout-amber">👑 Pemimpin</span>' : ''}
+        </div>
+        <div style="background:rgba(245,237,216,0.1);border-radius:999px;height:6px;overflow:hidden;margin-top:6px">
+          <div class="xp-bar-fill" style="width:${pct}%"></div>
+        </div>
+        <div class="flex justify-between text-xs text-scout-fog mt-0.5">
+          <span>${s.member_count} anggota</span>
+          <span>Quiz: ${s.quiz_xp} + Bonus: ${s.xp}</span>
+        </div>
+      </div>
+      <div class="text-right flex-shrink-0">
+        <div class="font-display text-xl text-scout-amber">${s.total_xp}</div>
+        <div class="text-scout-fog text-xs">XP</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Render Podium ──────────────────────────────────────────────
+function renderPodium(data) {
+  const top = data.slice(0, 3);
+  const podiumEl = document.getElementById('podium');
+  if (top.length === 0) { podiumEl.innerHTML = ''; return; }
+
+  const medals = ['🥇','🥈','🥉'];
+  const heights = ['h-28','h-20','h-16'];
+  // Reorder for visual podium: 2nd, 1st, 3rd
+  const order = top.length >= 3 ? [top[1], top[0], top[2]] : [top[0]];
+  const orderIdx = top.length >= 3 ? [1, 0, 2] : [0];
+
+  podiumEl.innerHTML = `
+  <div class="flex items-end justify-center gap-3">
+    ${order.map((s, i) => {
+      const origIdx = orderIdx[i];
+      const isFirst = origIdx === 0;
+      return `
+      <div class="flex flex-col items-center gap-2 flex-1 max-w-[160px]">
+        <div class="text-3xl">${s.emoji}</div>
+        <p class="font-display text-xs text-scout-cream text-center truncate w-full px-1">${s.name}</p>
+        <p class="text-scout-amber font-display text-sm">${s.total_xp} XP</p>
+        <div class="${heights[origIdx]} w-full ${isFirst ? 'top1-card' : 'card'} rounded-t-xl
+                   flex items-center justify-center text-3xl">
+          ${medals[origIdx]}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// Fallback: auto-refresh every 15s if socket not updating
+setInterval(() => {
+  fetch('/api/leaderboard')
+    .then(r => r.json())
+    .then(d => {
+      if (d.leaderboard) {
+        renderLeaderboard(d.leaderboard);
+        renderPodium(d.leaderboard);
+      }
+    }).catch(() => {});
+}, 15000);
+</script>
+{% endblock %}

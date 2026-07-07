@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="id" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}PTA Scout Adventure 2026{% endblock %}</title>
+  <meta name="description" content="Platform Manajemen Lomba Pramuka PTA Scout Adventure 2026" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Animate.css -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+  <!-- Google Fonts: Cinzel (display) + Lato (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Lato:wght@300;400;700&family=Special+Elite&display=swap" rel="stylesheet" />
+  <!-- Socket.IO -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            scout: {
+              bark:   '#3B2A1A',   /* Cokelat Tua */
+              earth:  '#5C3D2E',   /* Cokelat Medium */
+              amber:  '#D4882C',   /* Amber/Gold */
+              gold:   '#F0A830',   /* Gold bright */
+              cream:  '#F5EDD8',   /* Krem Kertas */
+              leaf:   '#4A7C3F',   /* Hijau Daun */
+              moss:   '#2E5C28',   /* Hijau Tua */
+              rope:   '#8B6914',   /* Cokelat Tali */
+              fog:    '#C8B99A',   /* Beige Kabut */
+            }
+          },
+          fontFamily: {
+            display: ['Cinzel', 'serif'],
+            body:    ['Lato', 'sans-serif'],
+            mono:    ['Special Elite', 'monospace'],
+          },
+          backgroundImage: {
+            'wood-texture': "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E\")",
+          },
+          animation: {
+            'fade-in-up': 'fadeInUp 0.6s ease both',
+            'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
+            'float': 'float 3s ease-in-out infinite',
+            'campfire': 'campfire 0.5s ease-in-out infinite alternate',
+          },
+          keyframes: {
+            pulseGlow: {
+              '0%,100%': { boxShadow: '0 0 15px rgba(212,136,44,0.4)' },
+              '50%':     { boxShadow: '0 0 35px rgba(212,136,44,0.9)' },
+            },
+            float: {
+              '0%,100%': { transform: 'translateY(0px)' },
+              '50%':     { transform: 'translateY(-8px)' },
+            },
+            campfire: {
+              '0%': { transform: 'scale(1) rotate(-2deg)', filter: 'brightness(1)' },
+              '100%': { transform: 'scale(1.05) rotate(2deg)', filter: 'brightness(1.2)' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* ── Global ────────────────────────────────────────────────── */
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Lato', sans-serif;
+      background-color: #1A1008;
+      color: #F5EDD8;
+      min-height: 100vh;
+    }
+    /* Paper texture overlay */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 0;
+    }
+    body > * { position: relative; z-index: 1; }
+
+    /* ── Scrollbar ──────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #1A1008; }
+    ::-webkit-scrollbar-thumb { background: #D4882C; border-radius: 3px; }
+
+    /* ── Utility ────────────────────────────────────────────────── */
+    .card {
+      background: linear-gradient(145deg, #2A1E0F, #1E1408);
+      border: 1px solid rgba(212,136,44,0.25);
+      border-radius: 1rem;
+      backdrop-filter: blur(4px);
+    }
+    .card-cream {
+      background: linear-gradient(145deg, #F5EDD8, #EDE0C4);
+      border: 2px solid #D4882C;
+      color: #2A1408;
+      border-radius: 1rem;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #D4882C, #F0A830);
+      color: #1A0A00;
+      font-family: 'Cinzel', serif;
+      font-weight: 700;
+      padding: 0.6rem 1.4rem;
+      border-radius: 0.5rem;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex; align-items: center; gap: 0.4rem;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(212,136,44,0.5);
+    }
+    .btn-danger {
+      background: linear-gradient(135deg, #7f1d1d, #b91c1c);
+      color: #fff;
+      font-weight: 700;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-danger:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(185,28,28,0.5); }
+    .btn-success {
+      background: linear-gradient(135deg, #14532d, #15803d);
+      color: #fff; font-weight: 700;
+      padding: 0.5rem 1rem; border-radius: 0.5rem;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-success:hover { transform: translateY(-1px); }
+    .input-field {
+      background: rgba(245,237,216,0.08);
+      border: 1px solid rgba(212,136,44,0.3);
+      color: #F5EDD8;
+      border-radius: 0.5rem;
+      padding: 0.6rem 1rem;
+      width: 100%;
+      transition: border-color 0.2s;
+      font-family: 'Lato', sans-serif;
+    }
+    .input-field:focus {
+      outline: none;
+      border-color: #D4882C;
+      box-shadow: 0 0 0 3px rgba(212,136,44,0.15);
+    }
+    .input-field option { background: #2A1E0F; }
+
+    /* ── Progress Bar ────────────────────────────────────────────── */
+    .progress-bar-track {
+      background: rgba(245,237,216,0.1);
+      border-radius: 999px; height: 12px; overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #D4882C, #F0A830);
+      border-radius: 999px;
+      transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ── Rope divider ────────────────────────────────────────────── */
+    .rope-divider {
+      border: none; height: 3px;
+      background: repeating-linear-gradient(90deg,
+        #8B6914 0px, #8B6914 8px,
+        #3B2A1A 8px, #3B2A1A 12px);
+      border-radius: 2px; margin: 1.5rem 0;
+    }
+
+    /* ── Badge / Rank ────────────────────────────────────────────── */
+    .rank-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 2rem; height: 2rem; border-radius: 50%;
+      font-family: 'Cinzel', serif; font-weight: 900;
+      font-size: 0.85rem;
+    }
+    .rank-1 { background: linear-gradient(135deg, #FFD700, #FFA500); color: #1A0A00; }
+    .rank-2 { background: linear-gradient(135deg, #C0C0C0, #A0A0A0); color: #1A0A00; }
+    .rank-3 { background: linear-gradient(135deg, #CD7F32, #A0522D); color: #fff; }
+    .rank-n { background: rgba(245,237,216,0.1); color: #C8B99A; }
+
+    /* ── Flash messages ─────────────────────────────────────────── */
+    .flash-success { background: rgba(20,83,45,0.8); border: 1px solid #15803d; }
+    .flash-danger  { background: rgba(127,29,29,0.8); border: 1px solid #b91c1c; }
+    .flash-warning { background: rgba(120,80,0,0.8);  border: 1px solid #d97706; }
+    .flash-info    { background: rgba(14,64,95,0.8);  border: 1px solid #0284c7; }
+
+    /* ── Page transition ────────────────────────────────────────── */
+    .page-enter { animation: fadeInUp 0.5s ease both; }
+
+    /* ── Glow text ──────────────────────────────────────────────── */
+    .text-glow {
+      text-shadow: 0 0 20px rgba(212,136,44,0.8), 0 0 40px rgba(212,136,44,0.4);
+    }
+
+    /* ── Nav ────────────────────────────────────────────────────── */
+    nav.scout-nav {
+      background: linear-gradient(90deg, #0D0700, #2A1408, #0D0700);
+      border-bottom: 2px solid #D4882C;
+      padding: 0.75rem 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    }
+
+    @media (max-width: 640px) {
+      .hide-mobile { display: none !important; }
+    }
+  </style>
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+  <!-- ── Navigation ───────────────────────────────────────────── -->
+  {% if current_user.is_authenticated %}
+  <nav class="scout-nav animate__animated animate__fadeInDown">
+    <a href="/" class="flex items-center gap-2 group">
+      <span class="text-2xl animate-campfire">🏕️</span>
+      <div>
+        <p class="font-display text-scout-amber text-sm leading-none text-glow">PTA Scout</p>
+        <p class="font-mono text-scout-fog text-xs">Adventure 2026</p>
+      </div>
+    </a>
+
+    <div class="flex items-center gap-3">
+      {% if current_user.is_admin %}
+        <span class="hide-mobile px-3 py-1 bg-scout-amber/20 border border-scout-amber/40 rounded-full text-scout-amber text-xs font-display">
+          ⚙️ ADMIN
+        </span>
+      {% else %}
+        {% if current_user.sangga %}
+        <span class="hide-mobile text-scout-fog text-sm">
+          {{ current_user.sangga.emoji }} {{ current_user.sangga.name }}
+        </span>
+        {% endif %}
+        <a href="/quiz/" class="btn-primary text-sm py-1 px-3">🧠 Kuis</a>
+        <a href="/quiz/leaderboard" class="hide-mobile text-scout-amber hover:text-scout-gold text-sm transition-colors">🏆 Papan</a>
+      {% endif %}
+
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-full bg-scout-amber/20 border border-scout-amber/40 flex items-center justify-center">
+          <span class="text-scout-amber text-xs font-display">{{ current_user.full_name[0].upper() }}</span>
+        </div>
+        <span class="hide-mobile text-scout-cream text-sm">{{ current_user.full_name }}</span>
+      </div>
+      <a href="/logout" class="text-scout-fog hover:text-scout-amber transition-colors text-sm">↩</a>
+    </div>
+  </nav>
+  {% endif %}
+
+  <!-- ── Flash Messages ───────────────────────────────────────── -->
+  {% with messages = get_flashed_messages(with_categories=True) %}
+    {% if messages %}
+    <div class="fixed top-16 right-4 z-50 flex flex-col gap-2 max-w-sm">
+      {% for category, message in messages %}
+      <div class="flash-{{ category }} text-scout-cream px-4 py-3 rounded-lg text-sm
+                  animate__animated animate__slideInRight flex items-start gap-2 shadow-xl"
+           data-flash>
+        <span>{{ '✅' if category == 'success' else '⚠️' if category == 'warning' else '❌' if category == 'danger' else 'ℹ️' }}</span>
+        <span>{{ message }}</span>
+        <button onclick="this.parentElement.remove()" class="ml-auto text-scout-fog hover:text-white">&times;</button>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- ── Main Content ──────────────────────────────────────────── -->
+  <main class="page-enter">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- ── Footer ───────────────────────────────────────────────── -->
+  <footer class="mt-16 py-6 text-center text-scout-fog/40 text-xs font-mono border-t border-scout-amber/10">
+    🏕️ PTA Scout Adventure 2026 · Membangun Karakter Pramuka Unggul
+  </footer>
+
+  <!-- ── Global Scripts ───────────────────────────────────────── -->
+  <script>
+    // Auto-dismiss flash messages
+    document.querySelectorAll('[data-flash]').forEach(el => {
+      setTimeout(() => el.classList.add('animate__fadeOut'), 4000);
+      setTimeout(() => el.remove(), 4600);
+    });
+
+    // Page transition links
+    document.querySelectorAll('a[href]').forEach(link => {
+      if (!link.href.startsWith('javascript') && link.target !== '_blank') {
+        link.addEventListener('click', function(e) {
+          if (!e.ctrlKey && !e.metaKey) {
+            document.querySelector('main')?.classList.add('animate__animated','animate__fadeOut','animate__faster');
+          }
+        });
+      }
+    });
+  </script>
+
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

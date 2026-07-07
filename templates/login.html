@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Login – PTA Scout Adventure 2026{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center px-4 py-12"
+     style="background: radial-gradient(ellipse at center, #2A1408 0%, #0D0500 70%);">
+
+  <!-- Background forest silhouette -->
+  <div class="fixed inset-0 overflow-hidden pointer-events-none">
+    <svg class="absolute bottom-0 w-full opacity-10" viewBox="0 0 1200 300" fill="#4A7C3F">
+      <polygon points="0,300 100,100 200,300"/>
+      <polygon points="80,300 200,60 320,300"/>
+      <polygon points="200,300 350,80 500,300"/>
+      <polygon points="400,300 520,40 640,300"/>
+      <polygon points="550,300 680,90 810,300"/>
+      <polygon points="700,300 840,50 980,300"/>
+      <polygon points="880,300 1020,70 1160,300"/>
+      <polygon points="1050,300 1150,110 1250,300"/>
+    </svg>
+    <!-- Stars -->
+    <div class="absolute inset-0" id="stars-bg"></div>
+  </div>
+
+  <div class="w-full max-w-md animate__animated animate__fadeInUp">
+    <!-- Logo -->
+    <div class="text-center mb-8">
+      <div class="text-7xl mb-3 animate-float inline-block">🏕️</div>
+      <h1 class="font-display text-4xl text-scout-amber text-glow tracking-wider">
+        PTA SCOUT
+      </h1>
+      <p class="font-mono text-scout-fog mt-1">Adventure 2026</p>
+      <div class="rope-divider max-w-[160px] mx-auto mt-4"></div>
+    </div>
+
+    <!-- Login Card -->
+    <div class="card p-8 shadow-2xl" style="border-color: rgba(212,136,44,0.4);">
+      <h2 class="font-display text-scout-cream text-xl text-center mb-6">
+        ⚜️ Masuk ke Markas
+      </h2>
+
+      <form action="/login" method="POST" class="space-y-4">
+        <div>
+          <label class="text-scout-fog text-sm mb-1 block">Username</label>
+          <input type="text" name="username" required autofocus
+                 class="input-field"
+                 placeholder="Masukkan username..."
+                 autocomplete="username" />
+        </div>
+
+        <div>
+          <label class="text-scout-fog text-sm mb-1 block">Password</label>
+          <div class="relative">
+            <input type="password" name="password" id="pw" required
+                   class="input-field pr-10"
+                   placeholder="••••••••"
+                   autocomplete="current-password" />
+            <button type="button" onclick="togglePw()"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-scout-fog hover:text-scout-amber">
+              👁
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <input type="checkbox" name="remember" id="remember"
+                 class="w-4 h-4 accent-amber-500" />
+          <label for="remember" class="text-scout-fog text-sm">Ingat saya</label>
+        </div>
+
+        <button type="submit" class="btn-primary w-full justify-center text-base py-3 mt-2">
+          🔥 Masuk ke Petualangan
+        </button>
+      </form>
+    </div>
+
+    <p class="text-center text-scout-fog/40 text-xs mt-6 font-mono">
+      Siap sedia. Ikut serta. Berjaya. 🪖
+    </p>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // Toggle password visibility
+  function togglePw() {
+    const pw = document.getElementById('pw');
+    pw.type = pw.type === 'password' ? 'text' : 'password';
+  }
+
+  // Animated stars
+  const starsContainer = document.getElementById('stars-bg');
+  for (let i = 0; i < 60; i++) {
+    const star = document.createElement('div');
+    star.style.cssText = `
+      position: absolute;
+      width: ${Math.random() * 2.5 + 1}px;
+      height: ${Math.random() * 2.5 + 1}px;
+      background: #F0A830;
+      border-radius: 50%;
+      left: ${Math.random() * 100}%;
+      top: ${Math.random() * 70}%;
+      opacity: ${Math.random() * 0.6 + 0.2};
+      animation: pulse 2s ease-in-out ${Math.random() * 3}s infinite;
+    `;
+    starsContainer.appendChild(star);
+  }
+</script>
+{% endblock %}
