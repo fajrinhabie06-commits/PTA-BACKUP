@@ -105,7 +105,6 @@
 
 {% block extra_scripts %}
 <script>
-const socket = io();
 let currentData = [];
 
 // Initial server-side data
@@ -125,26 +124,8 @@ const initialData = [
 
 currentData = initialData;
 renderPodium(initialData);
-// Table already rendered server-side, just update on socket events
 
-// ── Socket.IO ─────────────────────────────────────────────────
-socket.on('connect', () => {
-  document.getElementById('live-status').textContent = '🟢 Terhubung – Live Update';
-});
-
-socket.on('disconnect', () => {
-  document.getElementById('live-status').textContent = '🔴 Terputus – Reconnecting...';
-  document.getElementById('live-status').classList.replace('text-green-400','text-red-400');
-});
-
-socket.on('leaderboard_update', (data) => {
-  const lb = data.leaderboard;
-  currentData = lb;
-  renderLeaderboard(lb);
-  renderPodium(lb);
-  const now = new Date().toLocaleTimeString('id-ID');
-  document.getElementById('last-update').textContent = `Terakhir diperbarui: ${now}`;
-});
+document.getElementById('live-status').textContent = '🟢 Auto-update tiap 3 detik';
 
 // ── Render Table ───────────────────────────────────────────────
 function renderLeaderboard(data) {
@@ -190,7 +171,6 @@ function renderPodium(data) {
 
   const medals = ['🥇','🥈','🥉'];
   const heights = ['h-28','h-20','h-16'];
-  // Reorder for visual podium: 2nd, 1st, 3rd
   const order = top.length >= 3 ? [top[1], top[0], top[2]] : [top[0]];
   const orderIdx = top.length >= 3 ? [1, 0, 2] : [0];
 
@@ -213,16 +193,21 @@ function renderPodium(data) {
   </div>`;
 }
 
-// Fallback: auto-refresh every 15s if socket not updating
+// ── Polling: update tiap 3 detik ────────────────────────────────
 setInterval(() => {
   fetch('/api/leaderboard')
     .then(r => r.json())
     .then(d => {
       if (d.leaderboard) {
+        currentData = d.leaderboard;
         renderLeaderboard(d.leaderboard);
         renderPodium(d.leaderboard);
+        const now = new Date().toLocaleTimeString('id-ID');
+        document.getElementById('last-update').textContent = `Terakhir diperbarui: ${now}`;
       }
-    }).catch(() => {});
-}, 15000);
+    }).catch(() => {
+      document.getElementById('live-status').textContent = '🔴 Gagal update, mencoba lagi...';
+    });
+}, 3000);
 </script>
 {% endblock %}
