@@ -3,7 +3,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from functools import wraps
-from models import db, User, Sangga, Day, Mission, MissionSubmission, Quiz, QuizQuestion, XPLog
+from models import db, User, Sangga, Day, Mission, MissionSubmission, Quiz, QuizQuestion, XPLog, QuizAnswer
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -135,9 +135,17 @@ def delete_user(uid):
     if u.is_admin:
         flash("Tidak bisa menghapus akun Admin.", "danger")
         return redirect(url_for("admin.dashboard"))
+
+    full_name = u.full_name
+
+    # Bersihkan dulu data-data yang masih terhubung ke user ini,
+    # supaya tidak kena foreign key constraint error (500) saat dihapus
+    QuizAnswer.query.filter_by(user_id=u.id).delete()
+    MissionSubmission.query.filter_by(submitted_by_id=u.id).delete()
+
     db.session.delete(u)
     db.session.commit()
-    flash(f"Peserta '{u.full_name}' dihapus.", "info")
+    flash(f"Peserta '{full_name}' dihapus.", "info")
     return redirect(url_for("admin.dashboard"))
 
 
@@ -240,9 +248,10 @@ def add_quiz():
 @admin_required
 def toggle_quiz(qid):
     q = Quiz.query.get_or_404(qid)
+    new_status = not q.is_active  # tentukan status baru SEBELUM di-reset massal
     # Deactivate all others first
     Quiz.query.update({"is_active": False})
-    q.is_active = not q.is_active
+    q.is_active = new_status
     db.session.commit()
     status = "✅ Aktif" if q.is_active else "⏸ Nonaktif"
     flash(f"Kuis '{q.title}' sekarang {status}.", "success")
